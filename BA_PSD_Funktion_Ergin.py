@@ -1,6 +1,8 @@
 import dwdatareader as dw
 import numpy as np
 from scipy.signal import get_window
+import re #regular expressions ((Regex) für filename search)
+import os #Operating System (für arbeiten im Dateipfard, beides a bit dirty...)
 
 def compute_psd_1d(
     signal: np.ndarray,                 #Zeitsignal
@@ -8,7 +10,7 @@ def compute_psd_1d(
     fs: float,                          #Abtastrate in Hz
     overlap: float = 0.5,               #Überlappung
     window_type: str = 'hann',          #Fensterfunktion
-    show_progress: bool = False         #Hilfs-Tracking
+    #show_progress: bool = False         #Hilfs-Tracking
 ):
     """
     Berechnet das gemittelte Leistungsdichtespektrum (PSD) eines 1D-Signals
@@ -139,40 +141,13 @@ def list_channels(filepath: str):
 
 def load_d7d_channel(filepath: str, channel_name: str):
     with dw.DWFile(filepath) as f:
-        available_channels = list(f.keys())
-
-        if channel_name not in available_channels:
-            matches = [ch for ch in available_channels if channel_name.lower() in ch.lower()]
-
-            if len(matches) == 0:
-                print("\nVerfügbare Kanäle:")
-                for ch_name in available_channels:
-                    print(f"  {ch_name}")
-                raise KeyError(
-                    f"Kanal '{channel_name}' wurde nicht gefunden."
-                )
-            elif len(matches) == 1:
-                real_channel_name = matches[0]
-                print(f"Kanal '{channel_name}' nicht exakt gefunden.")
-                print(f"Verwende stattdessen: '{real_channel_name}'")
-            else:
-                print(f"Kanal '{channel_name}' nicht exakt gefunden.")
-                print("Ähnliche Treffer:")
-                for m in matches:
-                    print(f"  {m}")
-                raise KeyError(
-                    f"Mehrere mögliche Kanäle für '{channel_name}' gefunden."
-                )
-        else:
-            real_channel_name = channel_name
-
-        ch = f[real_channel_name]
+        ch = f[channel_name]
         series = ch.series()
         signal = series.to_numpy(dtype=float)
 
         fs = None
 
-        # Versuch 1: direkt aus Kanalattributen
+        #aus Kanalattributen
         for attr in ["sample_rate", "sampling_rate", "fs", "rate"]:
             if hasattr(ch, attr):
                 value = getattr(ch, attr)
@@ -183,7 +158,7 @@ def load_d7d_channel(filepath: str, channel_name: str):
                     except Exception:
                         pass
 
-        # Versuch 2: aus Zeitindex berechnen
+        #aus Zeitindex (backup)
         if fs is None and len(series.index) > 1:
             try:
                 dt = series.index[1] - series.index[0]
@@ -202,12 +177,94 @@ def load_d7d_channel(filepath: str, channel_name: str):
 
         if fs is None:
             raise ValueError(
-                f"Abtastrate für Kanal '{real_channel_name}' konnte nicht bestimmt werden."
+                f"Abtastrate für Kanal '{channel_name}' konnte nicht bestimmt werden."
             )
 
-        print(f"Verwendeter Kanal: {real_channel_name}")
-        print(f"Ermittelte Abtastrate fs: {fs:.3f} Hz")
+        #print(f"Verwendeter Kanal: {channel_name}")
+        #print(f"Ermittelte Abtastrate fs: {fs:.3f} Hz")
         #print(f"Erste 5 Indexwerte: {series.index[:5]}")
         #print(f"Erste 5 Signalwerte: {signal[:5]}")
 
     return signal, fs, series
+
+
+def get_psi(
+    ps1: np.ndarray,            # statischer Druck Einlass [mbar]
+    ps2: np.ndarray,            # statischer Druck Auslass [mbar]
+    n: np.ndarray,              # Drehzahl [rpm]
+    r: float,                   # Radius [m]
+    p_halle: np.ndarray,        # Umgebungsdruck [mbar]
+    T_halle: np.ndarray         # Temperatur [K]
+):
+    """
+    Berechnet den Druckbeiwert psi eines Verdichters.
+
+    Parameter
+    ----------
+    ps1 : np.ndarray
+        statischer Druck vor dem Verdichter [mbar]
+    ps2 : np.ndarray
+        statischer Druck nach dem Verdichter [mbar]
+    n : np.ndarray
+        Drehzahl [rpm]
+    r : float
+        Radius (z. B. Schaufelspitze) [m]
+    p_amb : float
+        Umgebungsdruck [Pa]
+    T_amb : float
+        Umgebungstemperatur [K]
+
+    Rückgabe
+    --------
+    psi : float
+        Druckbeiwert
+    """
+
+    # Mittelwerte bilden (stationärer Betrieb angenommen)
+    ps1_mean = np.mean(ps1)
+    ps2_mean = np.mean(ps2)
+    n_mean = np.mean(n)
+    p_mean = np.mean(p_halle)
+    T_mean = np.mean(T_halle)
+
+    # Einheit: mbar → Pa
+    ps1_mean *= 100
+    ps2_mean *= 100
+    p_mean   *= 100
+
+    # Druckdifferenz
+    dp = ps2_mean - ps1_mean
+
+    # Luftdichte (ideales Gas)
+    R = 287.0                   # J/(kg K)
+    rho = p_mean / (R * T_mean)
+
+    # Drehzahl → Umfangsgeschwindigkeit
+    omega = 2 * np.pi * n_mean / 60.0
+    U = omega * r
+
+    # Sicherheitscheck
+    if U == 0:
+        raise ValueError("Umfangsgeschwindigkeit error")
+
+    # psi berechnen
+    psi = dp / (rho * U**2)
+
+    return psi
+
+
+def get_drosselwert_from_filename(filepath: str):
+    """
+    Extrahiert den Drosselwert aus dem Dateinamen.
+    Beispiel:
+        ..._d122_... -> 122
+
+    Rückgabe:
+        int oder None
+    """
+    filename = os.path.basename(filepath)
+    match = re.search(r"_d(\d+)_", filename)
+
+    if match:
+        return int(match.group(1))
+    return None
