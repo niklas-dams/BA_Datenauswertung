@@ -1,6 +1,6 @@
 import dwdatareader as dw
 import numpy as np
-from scipy.signal import get_window
+from scipy.signal import get_window, welch
 import re #regular expressions ((Regex) für filename search)
 import os #Operating System (für arbeiten im Dateipfard, beides a bit dirty...)
 
@@ -91,11 +91,13 @@ def compute_psd_1d(
         # Mittelwert entfernen und fenstern
         seg = (seg - np.mean(seg)) * window
 
-        # FFT
+        # FFT (Fourier-Transformation)
         X = np.fft.fft(seg, nFFT)
 
         # Nur positive Frequenzen bis Nyquist verwenden
-        psd_seg = 2 * X[:nFreqBins] * np.conj(X[:nFreqBins]) / (nFFT * U)
+        psd_seg = 2 * X[:nFreqBins] * np.conj(X[:nFreqBins]) / (nFFT * U) #Grund für unterschiedliche y-Skalierung zu Scipy! Hier pro Bin nicht pro Hz
+        # Im Grunde (|X(f)|^2)/(nFFT * U) ohne nomierung auf Faktor somit pro Bin, zudem werden alle Freqs verdoppelt (0 Hz (DC) und Ny müssten *1 bleiben aber egal...)
+
 
         # Aufsummieren
         Pxx += psd_seg
@@ -111,6 +113,44 @@ def compute_psd_1d(
 
     return freqs, psd, psd_per_bin
 
+
+def compute_psd_1d_scipy(
+    signal: np.ndarray,
+    nFFT: int,
+    fs: float,
+    overlap: float = 0.5,
+    window_type: str = "hann"
+):
+    if not 0 <= overlap < 1:
+        raise ValueError("overlap muss zwischen 0 und kleiner als 1 liegen.")
+    if nFFT <= 0:
+        raise ValueError("nFFT muss > 0 sein.")
+    if fs <= 0:
+        raise ValueError("fs muss > 0 sein.")
+
+    signal = np.asarray(signal)
+    if signal.ndim != 1:
+        raise ValueError("signal muss ein 1D-Array sein.")
+
+    noverlap = int(nFFT * overlap)
+
+    freqs, psd = welch(
+        signal,
+        fs=fs,
+        window=window_type,
+        nperseg=nFFT,
+        noverlap=noverlap,
+        nfft=nFFT,
+        detrend="constant",
+        return_onesided=True,
+        scaling="density",
+        average="mean",
+    )
+
+    df = freqs[1] - freqs[0] if len(freqs) > 1 else fs / nFFT
+    psd_per_bin = psd * df
+
+    return freqs, psd, psd_per_bin
 
 
 def read_d7d_info(filepath: str):
