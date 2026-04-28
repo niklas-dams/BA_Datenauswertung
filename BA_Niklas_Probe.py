@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import re
 import os
 import glob
-from BA_PSD_Funktion_Ergin import list_channels, load_d7d_channel, compute_psd_1d, get_psi, get_drosselwert_from_filename, compute_psd_1d_scipy
+import numpy as np
+from BA_PSD_Funktion_Ergin import list_channels, read_d7d_info, get_psi_from_d7d, get_area, get_phi, find_pressure_psi_channels, load_d7d_channel, compute_psd_1d, get_psi, get_drosselwert_from_filename, compute_psd_1d_scipy
 
 def main():
 
@@ -20,6 +21,13 @@ def main():
     # alle Kanäle anzeigen
     print("Verfügbare Kanäle:")
     list_channels(filepath)
+
+    # uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
+    # uTip = np.mean(uTip_signal)
+    # print(f"Drehzahl: {uTip}m/s")
+
+
+    #find_pressure_psi_channels(filepath)
 
     # Drucksensor-Kanäle
     channels = [f"pU{i:02d}" for i in range(1,21)]
@@ -44,7 +52,7 @@ def main():
             #print(f"Abtastrate fs: {fs} Hz")
 
             # PSD berechnen
-            freqs, psd, psd_per_bin = compute_psd_1d(
+            freqs, psd, psd_per_bin = compute_psd_1d_scipy(
                 signal=signal,
                 nFFT=nFFT,
                 fs=fs,
@@ -68,75 +76,96 @@ def main():
     plt.grid(True)
     # plt.legend(ncol=2, fontsize=8) #kann man eh nicht erkennen
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
 
 
     # #-----------------------------------------------------------------------------------------------------------
     # #--------------------------Pseudo Kennfeld------------------------------------------------------------------
     # #-----------------------------------------------------------------------------------------------------------
-    # # Ordner mit deinen d7d-Dateien
-    # folderpath = r"C:\Users\Nikla\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\MA_NG_Base_n10k_stationary\MA_NG_Base_n10k_stationary"
+    # Ordner mit deinen d7d-Dateien
+    folderpath = r"C:\Users\Nikla\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\MA_NG_Base_n10k_stationary\MA_NG_Base_n10k_stationary"
 
-    # # Alle d7d-Dateien im Ordner holen
-    # filepaths = glob.glob(os.path.join(folderpath, "*.d7d"))
+    # Alle d7d-Dateien im Ordner holen
+    filepaths = glob.glob(os.path.join(folderpath, "*.d7d"))
 
-    # # Radius anpassen!
-    # r = 0.05  # [m]
+    # Radius und Fläche??!?
+    r = 0.038  # [m]
+    area = get_area(r)
+    
 
-    # d_values = []
-    # psi_values = []
+    d_values = []
+    psi_values = []
+    phi_values = []
 
-    # for filepath in filepaths:
-    #     try:
-    #         d_value = get_drosselwert_from_filename(filepath)
+    for filepath in filepaths:
+        try:
+            d_value = get_drosselwert_from_filename(filepath)
 
-    #         if d_value is None:
-    #             print(f"Kein Drosselwert im Dateinamen gefunden: {filepath}")
-    #             continue
+            if d_value is None:
+                print(f"Kein Drosselwert im Dateinamen gefunden: {filepath}")
+                continue
 
-    #         # Kanäle laden
-    #         ps1, fs, _ = load_d7d_channel(filepath, "ps1")
-    #         ps2, fs, _ = load_d7d_channel(filepath, "ps2")
-    #         n, fs, _ = load_d7d_channel(filepath, "Drehzahl")
-    #         pHalle, fs, _ = load_d7d_channel(filepath, "pHalle")
-    #         THalle, fs, _ = load_d7d_channel(filepath, "THalle")
+            # Kanäle laden
+            ps1, fs, _ = load_d7d_channel(filepath, "ps1")
+            ps2, fs, _ = load_d7d_channel(filepath, "ps2")
+            n, fs, _ = load_d7d_channel(filepath, "Drehzahl")
+            pHalle, fs, _ = load_d7d_channel(filepath, "pHalle")
+            THalle, fs, _ = load_d7d_channel(filepath, "THalle")
+            
+            #psi aus d7d:
+            psi = get_psi_from_d7d(filepath)
 
-    #         # psi berechnen
-    #         psi = get_psi(
-    #             ps1=ps1,
-    #             ps2=ps2,
-    #             n=n,
-    #             r=r,
-    #             p_halle=pHalle,
-    #             T_halle=THalle
-    #         )
+            # # psi berechnen
+            # psi = get_psi(
+            #     ps1=ps1,
+            #     ps2=ps2,
+            #     n=n,
+            #     r=r,
+            #     p_halle=pHalle,
+            #     T_halle=THalle
+            # )
 
-    #         d_values.append(d_value)
-    #         psi_values.append(psi)
+            #phi berechnen:
+            phi = get_phi(filepath, area, r)
 
-    #         print(f"{os.path.basename(filepath)} -> d = {d_value}, psi = {psi:.5f}")
+            d_values.append(d_value)
+            psi_values.append(psi)
+            phi_values.append(phi)
 
-    #     except Exception as e:
-    #         print(f"Fehler bei Datei {os.path.basename(filepath)}: {e}")
+            print(f"{os.path.basename(filepath)} -> d = {d_value}, psi = {psi:.5f}, phi = {phi:.5f}")
 
-    # # Nach Drosselwert sortieren
-    # if len(d_values) == 0:
-    #     print("Keine gültigen Daten zum Plotten gefunden.")
-    #     return
+        except Exception as e:
+            print(f"Fehler bei Datei {os.path.basename(filepath)}: {e}")
 
-    # data_sorted = sorted(zip(d_values, psi_values), key=lambda x: x[0])
-    # d_values_sorted, psi_values_sorted = zip(*data_sorted)
+    # Nach Drosselwert sortieren
+    if len(d_values) == 0:
+        print("Keine gültigen Daten zum Plotten gefunden.")
+        return
 
-    # # Plot
-    # plt.figure(figsize=(8, 5))
-    # plt.plot(d_values_sorted, psi_values_sorted, 'o-')
-    # plt.xlabel("Drosselwert d")
-    # plt.ylabel(r"$\psi$")
-    # plt.title(r"$\psi$ über Drosselwert")
-    # plt.grid(True)
-    # plt.tight_layout()
-    # plt.show()
+    data_sorted = sorted(zip(d_values, psi_values, phi_values), key=lambda x: x[0])
+    d_values_sorted, psi_values_sorted, phi_values_sorted = zip(*data_sorted)
+
+    # Plot ψ über d
+    plt.figure(figsize=(8, 5))
+    plt.plot(d_values_sorted, psi_values_sorted, 'o-')
+    plt.xlabel("Drosselwert d")
+    plt.ylabel(r"$\psi$")
+    plt.title(r"$\psi$ über Drosselwert d")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # Plot ψ über φ
+    plt.figure(figsize=(8, 5))
+    plt.plot(phi_values_sorted, psi_values_sorted, 'o-')
+    plt.xlabel(r"$\phi$")
+    plt.ylabel(r"$\psi$")
+    plt.title(r"$\psi$ über $\phi$")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
 
 
 

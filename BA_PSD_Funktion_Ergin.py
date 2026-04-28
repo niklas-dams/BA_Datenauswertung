@@ -161,6 +161,34 @@ def read_d7d_info(filepath: str):
         info = f.info
     return info
 
+def find_pressure_psi_channels(filepath: str):
+    keywords = [
+        "ps", "pt", "p0", "total", "tot", "stau",
+        "druck", "pressure", "psi"
+    ]
+
+    with dw.DWFile(filepath) as f:
+        for i, ch in enumerate(f.values()):
+            try:
+                name = ch.name
+                unit = getattr(ch, "unit", "")
+                text = f"{name} {unit}".lower()
+
+                if any(k in text for k in keywords):
+                    series = ch.series()
+                    values = series.to_numpy(dtype=float)
+
+                    print("\n" + "-" * 80)
+                    print(f"{i:3d} | {name}")
+                    print(f"    Einheit: {unit}")
+                    print(f"    Samples: {len(values)}")
+                    print(f"    Mittelwert: {np.nanmean(values)}")
+                    print(f"    Min:        {np.nanmin(values)}")
+                    print(f"    Max:        {np.nanmax(values)}")
+                    print(f"    Erste 5:    {values[:5]}")
+
+            except Exception as e:
+                print(f"{i:3d} | Fehler: {e}")
 
 def list_channels(filepath: str):
     """
@@ -273,7 +301,7 @@ def get_psi(
     p_mean   *= 100
 
     # Druckdifferenz
-    dp = ps2_mean - ps1_mean
+    dp = ps2_mean - pt1_mean #anpassen!!!
 
     # Luftdichte (ideales Gas)
     R = 287.0                   # J/(kg K)
@@ -281,7 +309,7 @@ def get_psi(
 
     # Drehzahl → Umfangsgeschwindigkeit
     omega = 2 * np.pi * n_mean / 60.0
-    U = omega * r
+    U = omega * r #in hZ
 
     # Sicherheitscheck
     if U == 0:
@@ -291,6 +319,47 @@ def get_psi(
     psi = dp / (rho * U**2)
 
     return psi
+
+def get_psi_from_d7d(filepath):
+    psi_signal, fs, _ = load_d7d_channel(filepath, "psi")
+    psi = np.mean(psi_signal)
+
+    return psi
+
+def get_m_dot(filepath, area, radius):
+    p_ein, _, _ = load_d7d_channel(filepath, "pHalle")
+    T_ein, _, _ = load_d7d_channel(filepath, "THalle")
+    U = 2 * np.pi * load_d7d_channel(filepath, "Drehzahl")[0].mean() / 60 * radius
+    rho = p_ein.mean() / (287.0 * T_ein.mean())
+    return rho * area * U
+
+def get_m_dot_from_d7d(filepath):
+    m_dot_signal, fs, _ =load_d7d_channel(filepath, "mDot")
+    m_dot = np.mean(m_dot_signal)
+
+    return m_dot
+
+def get_m_dot_red(filepath, area, radius):
+    m_dot = get_m_dot(filepath, area, radius)
+    p_ein, _, _ = load_d7d_channel(filepath, "pHalle")
+    T_ein, _, _ = load_d7d_channel(filepath, "THalle")
+    return (m_dot / np.sqrt(T_ein.mean())) / p_ein.mean()
+
+def get_phi(filepath, area, radius):
+    #m_dot = get_m_dot(filepath, area, radius)
+    m_dot = get_m_dot_from_d7d(filepath)
+    p_ein, _, _ = load_d7d_channel(filepath, "pHalle")
+    T_ein, _, _ = load_d7d_channel(filepath, "THalle")
+
+    uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
+    uTip = np.mean(uTip_signal)
+
+    rho = p_ein.mean() / (287.0 * T_ein.mean())
+    U = 2 * np.pi * 10000 / 60 * radius #für Vergleich
+    return (m_dot / (rho * area * uTip))
+
+def get_area(radius):
+    return np.pi * radius**2
 
 
 def get_drosselwert_from_filename(filepath: str):
