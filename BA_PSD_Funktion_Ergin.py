@@ -255,15 +255,19 @@ def load_d7d_channel(filepath: str, channel_name: str):
 
     return signal, fs, series
 
+def get_rho(filepath):
+    pt1_signal, _, _ = load_d7d_channel(filepath, "pt")
+    pHalle_signal, _, _= load_d7d_channel(filepath, "pHalle")
+    T_signal, _, _ = load_d7d_channel(filepath, "THalle")
+    
+    pHalle_mean = np.mean(pHalle_signal) *100
+    pt1_mean = np.mean(pt1_signal) * 100
+    T_mean = np.mean(T_signal)
+    rho_mean = (pt1_mean + pHalle_mean) / (287.0 * T_mean)
 
-def get_psi(
-    ps1: np.ndarray,            # statischer Druck Einlass [mbar]
-    ps2: np.ndarray,            # statischer Druck Auslass [mbar]
-    n: np.ndarray,              # Drehzahl [rpm]
-    r: float,                   # Radius [m]
-    p_halle: np.ndarray,        # Umgebungsdruck [mbar]
-    T_halle: np.ndarray         # Temperatur [K]
-):
+    return rho_mean
+
+def get_psi(filepath):
     """
     Berechnet den Druckbeiwert psi eines Verdichters.
 
@@ -288,35 +292,45 @@ def get_psi(
         Druckbeiwert
     """
 
+    # Kanäle laden
+    ps1,_,_ = load_d7d_channel(filepath, "ps1")
+    ps2,_,_ = load_d7d_channel(filepath, "ps2")
+    pt1,_,_ = load_d7d_channel(filepath, "pt")
+    n,_,_ = load_d7d_channel(filepath, "Drehzahl")
+    pHalle,_,_ = load_d7d_channel(filepath, "pHalle")
+    THalle,_,_ = load_d7d_channel(filepath, "THalle")
+
     # Mittelwerte bilden (stationärer Betrieb angenommen)
-    ps1_mean = np.mean(ps1)
-    ps2_mean = np.mean(ps2)
+    ps1_diff_mean = np.mean(ps1)
+    ps2_diff_mean = np.mean(ps2)
+    pt1_diff_mean = np.mean(pt1)
     n_mean = np.mean(n)
-    p_mean = np.mean(p_halle)
-    T_mean = np.mean(T_halle)
+    p_mean = np.mean(pHalle)
+    T_mean = np.mean(THalle)
+    print(f"drehzahl: {n_mean}")
+
+    # Druckdifferenz in Absolutdruck
+    ps1_mean = ps1_diff_mean + p_mean
+    ps2_mean = ps2_diff_mean + p_mean
+    pt1_mean = pt1_diff_mean + p_mean
 
     # Einheit: mbar → Pa
     ps1_mean *= 100
     ps2_mean *= 100
     p_mean   *= 100
-
-    # Druckdifferenz
-    dp = ps2_mean - pt1_mean #anpassen!!!
+    pt1_mean *= 100
 
     # Luftdichte (ideales Gas)
     R = 287.0                   # J/(kg K)
     rho = p_mean / (R * T_mean)
+    #print(f"rho berechnet: {rho}")
 
-    # Drehzahl → Umfangsgeschwindigkeit
-    omega = 2 * np.pi * n_mean / 60.0
-    U = omega * r #in hZ
-
-    # Sicherheitscheck
-    if U == 0:
-        raise ValueError("Umfangsgeschwindigkeit error")
+    # Druckdifferenz
+    dp = ps2_mean - pt1_mean #total to static!
 
     # psi berechnen
-    psi = dp / (rho * U**2)
+    psi = dp / (rho * n_mean**2)
+    #print(f"Psi berechnet = {psi}")
 
     return psi
 
@@ -326,12 +340,12 @@ def get_psi_from_d7d(filepath):
 
     return psi
 
-def get_m_dot(filepath, area, radius):
-    p_ein, _, _ = load_d7d_channel(filepath, "pHalle")
-    T_ein, _, _ = load_d7d_channel(filepath, "THalle")
-    U = 2 * np.pi * load_d7d_channel(filepath, "Drehzahl")[0].mean() / 60 * radius
-    rho = p_ein.mean() / (287.0 * T_ein.mean())
-    return rho * area * U
+def get_m_dot(filepath, area):
+    rho = get_rho(filepath)
+    v = get_v1(filepath)
+    m_dot = rho * area * v
+    print(f"m_dot berechet: {m_dot}")
+    return m_dot
 
 def get_m_dot_from_d7d(filepath):
     m_dot_signal, fs, _ =load_d7d_channel(filepath, "mDot")
@@ -354,13 +368,12 @@ def get_phi(filepath, area, radius):
     uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
     uTip = np.mean(uTip_signal)
 
-    rho = p_ein.mean() / (287.0 * T_ein.mean())
+    rho = p_ein.mean() * 100 / (287.0 * T_ein.mean())
     U = 2 * np.pi * 10000 / 60 * radius #für Vergleich
     return (m_dot / (rho * area * uTip))
 
 def get_area(radius):
     return np.pi * radius**2
-
 
 def get_drosselwert_from_filename(filepath: str):
     """
@@ -377,3 +390,27 @@ def get_drosselwert_from_filename(filepath: str):
     if match:
         return int(match.group(1))
     return None
+
+def get_v1(filepath):
+    pt1_signal, _, _ = load_d7d_channel(filepath, "pt")
+    ps_signal, _, _ = load_d7d_channel(filepath, "ps1")
+    pHalle_signal, _, _= load_d7d_channel(filepath, "pHalle")
+    T_signal, _, _ = load_d7d_channel(filepath, "THalle")
+    
+    pHalle_mean = np.mean(pHalle_signal) *100
+    pt1_mean = np.mean(pt1_signal) * 100
+    T_mean = np.mean(T_signal)
+    rho_mean = (pt1_mean + pHalle_mean) / (287.0 * T_mean)
+    ps_mean = np.mean(ps_signal) * 100
+
+    return np.sqrt((2 * ((pt1_mean + pHalle_mean) - (ps_mean + pHalle_mean)))/(rho_mean))
+    pt2_signal, _, _ = load_d7d_channel(filepath, "pt")
+    ps_signal, _, _ = load_d7d_channel(filepath, "ps2")
+    T_signal, _, _ = load_d7d_channel(filepath, "THalle")
+    
+    pt2_mean = np.mean(pt2_signal) * 100000
+    T_mean = np.mean(T_signal)
+    rho_mean = pt2_mean / (287.0 * T_mean)
+    ps_mean = np.mean(ps_signal)
+
+    return np.sqrt((2 * (pt2_mean))/(rho_mean))

@@ -3,7 +3,7 @@ import re
 import os
 import glob
 import numpy as np
-from BA_PSD_Funktion_Ergin import list_channels, read_d7d_info, get_psi_from_d7d, get_area, get_phi, find_pressure_psi_channels, load_d7d_channel, compute_psd_1d, get_psi, get_drosselwert_from_filename, compute_psd_1d_scipy
+from BA_PSD_Funktion_Ergin import get_m_dot, list_channels, get_v1, read_d7d_info, get_psi_from_d7d, get_area, get_phi, find_pressure_psi_channels, load_d7d_channel, compute_psd_1d, get_psi, get_drosselwert_from_filename, compute_psd_1d_scipy
 
 def main():
 
@@ -18,16 +18,36 @@ def main():
 
     d_value_PSD = get_drosselwert_from_filename(filepath)
 
+    # Radius und Fläche??!?
+    r = 0.038  # [m]
+    area = get_area(r)
+
     # alle Kanäle anzeigen
     print("Verfügbare Kanäle:")
     list_channels(filepath)
 
-    # uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
-    # uTip = np.mean(uTip_signal)
-    # print(f"Drehzahl: {uTip}m/s")
+    #Verschiedene Werte aus d7d überprüfen:
+    rho_signal,_,_ = load_d7d_channel(filepath, "Dichte")
+    rho_mean = np.mean(rho_signal)
+    print(f"Dichte: {rho_mean}")
+
+    velo_signal, _ , _ = load_d7d_channel(filepath, "velo")
+    velo_mean = np.mean(velo_signal)
+    print(f"v aus d7d: {velo_mean}")
+
+    psi_from_d7d_signal, _, _ = load_d7d_channel(filepath, "psi")
+    psi_from_d7d_mean = np.mean(psi_from_d7d_signal)
+    print(f"psi aus der d7d: {psi_from_d7d_mean}")
+
+    v1 = get_v1(filepath)
+    print(f"v1: {v1}")
+
+    m_dot_signal,_,_ = load_d7d_channel(filepath, "mDot")
+    m_dot_mean = np.mean(m_dot_signal)
+    print(f"m_dot: {m_dot_mean}")
+    m_dot = get_m_dot(filepath, area)
 
 
-    #find_pressure_psi_channels(filepath)
 
     # Drucksensor-Kanäle
     channels = [f"pU{i:02d}" for i in range(1,21)]
@@ -89,9 +109,7 @@ def main():
     # Alle d7d-Dateien im Ordner holen
     filepaths = glob.glob(os.path.join(folderpath, "*.d7d"))
 
-    # Radius und Fläche??!?
-    r = 0.038  # [m]
-    area = get_area(r)
+
     
 
     d_values = []
@@ -105,26 +123,13 @@ def main():
             if d_value is None:
                 print(f"Kein Drosselwert im Dateinamen gefunden: {filepath}")
                 continue
-
-            # Kanäle laden
-            ps1, fs, _ = load_d7d_channel(filepath, "ps1")
-            ps2, fs, _ = load_d7d_channel(filepath, "ps2")
-            n, fs, _ = load_d7d_channel(filepath, "Drehzahl")
-            pHalle, fs, _ = load_d7d_channel(filepath, "pHalle")
-            THalle, fs, _ = load_d7d_channel(filepath, "THalle")
             
             #psi aus d7d:
-            psi = get_psi_from_d7d(filepath)
+            #psi = get_psi_from_d7d(filepath)
 
             # # psi berechnen
-            # psi = get_psi(
-            #     ps1=ps1,
-            #     ps2=ps2,
-            #     n=n,
-            #     r=r,
-            #     p_halle=pHalle,
-            #     T_halle=THalle
-            # )
+            psi = get_psi(filepath)
+            #psi = float(np.mean(psi))
 
             #phi berechnen:
             phi = get_phi(filepath, area, r)
@@ -154,7 +159,7 @@ def main():
     plt.title(r"$\psi$ über Drosselwert d")
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
     # Plot ψ über φ
     plt.figure(figsize=(8, 5))
