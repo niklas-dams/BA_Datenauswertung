@@ -273,18 +273,8 @@ def get_psi(filepath):
 
     Parameter
     ----------
-    ps1 : np.ndarray
-        statischer Druck vor dem Verdichter [mbar]
-    ps2 : np.ndarray
-        statischer Druck nach dem Verdichter [mbar]
-    n : np.ndarray
-        Drehzahl [rpm]
-    r : float
-        Radius (z. B. Schaufelspitze) [m]
-    p_amb : float
-        Umgebungsdruck [Pa]
-    T_amb : float
-        Umgebungstemperatur [K]
+    filepath : string
+            filepath
 
     Rückgabe
     --------
@@ -307,12 +297,16 @@ def get_psi(filepath):
     n_mean = np.mean(n)
     p_mean = np.mean(pHalle)
     T_mean = np.mean(THalle)
-    print(f"drehzahl: {n_mean}")
+    #print(f"drehzahl: {n_mean}")
 
     # Druckdifferenz in Absolutdruck
     ps1_mean = ps1_diff_mean + p_mean
     ps2_mean = ps2_diff_mean + p_mean
     pt1_mean = pt1_diff_mean + p_mean
+
+    #U_tip berechnen mit rpm = 10.000, r = 0.038
+    radius = 0.038
+    U = 2 * np.pi * 10000 / 60 * radius
 
     # Einheit: mbar → Pa
     ps1_mean *= 100
@@ -323,13 +317,13 @@ def get_psi(filepath):
     # Luftdichte (ideales Gas)
     R = 287.0                   # J/(kg K)
     rho = p_mean / (R * T_mean)
-    #print(f"rho berechnet: {rho}")
+    print(f"rho berechnet: {rho}")
 
     # Druckdifferenz
     dp = ps2_mean - pt1_mean #total to static!
 
     # psi berechnen
-    psi = dp / (rho * n_mean**2)
+    psi = dp / (0.5 *rho * U**2) #tip speed
     #print(f"Psi berechnet = {psi}")
 
     return psi
@@ -361,16 +355,18 @@ def get_m_dot_red(filepath, area, radius):
 
 def get_phi(filepath, area, radius):
     #m_dot = get_m_dot(filepath, area, radius)
-    m_dot = get_m_dot_from_d7d(filepath)
+    #m_dot = get_m_dot_from_d7d(filepath)
     p_ein, _, _ = load_d7d_channel(filepath, "pHalle")
     T_ein, _, _ = load_d7d_channel(filepath, "THalle")
 
-    uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
-    uTip = np.mean(uTip_signal)
+    # uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
+    # uTip = np.mean(uTip_signal)
+
+    v1 = get_v1(filepath)
 
     rho = p_ein.mean() * 100 / (287.0 * T_ein.mean())
     U = 2 * np.pi * 10000 / 60 * radius #für Vergleich
-    return (m_dot / (rho * area * uTip))
+    return (v1 / U) #c1 / U
 
 def get_area(radius):
     return np.pi * radius**2
