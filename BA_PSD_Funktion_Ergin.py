@@ -317,7 +317,7 @@ def get_psi(filepath):
     # Luftdichte (ideales Gas)
     R = 287.0                   # J/(kg K)
     rho = p_mean / (R * T_mean)
-    print(f"rho berechnet: {rho}")
+    #print(f"rho berechnet: {rho}")
 
     # Druckdifferenz
     dp = ps2_mean - pt1_mean #total to static!
@@ -338,7 +338,7 @@ def get_m_dot(filepath, area):
     rho = get_rho(filepath)
     v = get_v1(filepath)
     m_dot = rho * area * v
-    print(f"m_dot berechet: {m_dot}")
+    # print(f"m_dot berechet: {m_dot}")
     return m_dot
 
 def get_m_dot_from_d7d(filepath):
@@ -353,20 +353,17 @@ def get_m_dot_red(filepath, area, radius):
     T_ein, _, _ = load_d7d_channel(filepath, "THalle")
     return (m_dot / np.sqrt(T_ein.mean())) / p_ein.mean()
 
-def get_phi(filepath, area, radius):
-    #m_dot = get_m_dot(filepath, area, radius)
-    #m_dot = get_m_dot_from_d7d(filepath)
+def get_phi(filepath, radius):
+
     p_ein, _, _ = load_d7d_channel(filepath, "pHalle")
     T_ein, _, _ = load_d7d_channel(filepath, "THalle")
-
-    # uTip_signal, _, _ = load_d7d_channel(filepath, "uTip")
-    # uTip = np.mean(uTip_signal)
 
     v1 = get_v1(filepath)
 
     rho = p_ein.mean() * 100 / (287.0 * T_ein.mean())
-    U = 2 * np.pi * 10000 / 60 * radius #für Vergleich
-    return (v1 / U) #c1 / U
+    U = 2 * np.pi * 10000 / 60 * radius
+
+    return v1 / U
 
 def get_area(radius):
     return np.pi * radius**2
@@ -410,3 +407,73 @@ def get_v1(filepath):
     ps_mean = np.mean(ps_signal)
 
     return np.sqrt((2 * (pt2_mean))/(rho_mean))
+
+def compute_mean_psd(
+    filepath,
+    channel_name,
+    nFFT,
+    overlap=0.5,
+    window_type="hann"
+):
+    """
+    Berechnet die gemittelte PSD aus den fünf Messungen
+    einer Drosselstellung.
+    """
+
+    folder = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+
+    # alles bis einschließlich dXXX_
+    prefix = re.sub(r"000\d\.d7d$", "", filename)
+
+    files = []
+
+    for i in range(5):
+        file = os.path.join(folder, f"{prefix}000{i}.d7d")
+
+        if os.path.exists(file):
+            files.append(file)
+
+    if len(files) == 0:
+        raise FileNotFoundError("Keine Dateien gefunden.")
+
+    psd_list = []
+
+    for file in files:
+
+        signal, fs, _ = load_d7d_channel(file, channel_name)
+
+        freqs, psd, _ = compute_psd_1d_scipy(
+            signal=signal,
+            nFFT=nFFT,
+            fs=fs,
+            overlap=overlap,
+            window_type=window_type
+        )
+
+        psd_list.append(psd)
+
+    psd_mean = np.mean(psd_list, axis=0)
+
+    return freqs, psd_mean
+
+def get_mean_operating_point(filepaths_for_d, r):
+
+    psi_values = []
+    phi_values = []
+
+    for filepath in filepaths_for_d:
+
+        psi = get_psi(filepath)
+        phi = get_phi(filepath, r)
+
+        psi_values.append(psi)
+        phi_values.append(phi)
+
+    psi_mean = np.mean(psi_values)
+    phi_mean = np.mean(phi_values)
+
+    psi_std = np.std(psi_values, ddof=1)
+    phi_std = np.std(phi_values, ddof=1)
+
+    return psi_mean, phi_mean, psi_std, phi_std
