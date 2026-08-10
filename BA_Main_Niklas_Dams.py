@@ -3,7 +3,7 @@ import re
 import os
 import glob
 import numpy as np
-from BA_PSD_Funktion_Ergin import get_mean_operating_point, compute_mean_psd, get_m_dot, list_channels, get_v1, read_d7d_info, get_psi_from_d7d, get_area, get_phi, find_pressure_psi_channels, load_d7d_channel, compute_psd_1d, get_psi, get_drosselwert_from_filename, compute_psd_1d_scipy
+from BA_Funktionen_Niklas_Dams import get_mean_operating_point, compute_mean_psd, get_m_dot, list_channels, get_v1, read_d7d_info, get_psi_from_d7d, get_area, get_phi, find_pressure_psi_channels, load_d7d_channel, compute_psd_1d, get_psi, get_drosselwert_from_filename, compute_psd_1d_scipy
 
 def main():
     # ! -------------------------------------------------------------------------------------------------------
@@ -15,28 +15,139 @@ def main():
         #*
         #*
 
-    # ! ---------------------------------------------------------------------------------------------------
+    # ! ===========================================================================================
+    # ! ====================================== KONFIGURATION ======================================
+    # ! ===========================================================================================
+
+    # ! -------------------------------------------------------------------------------------------------------
     # ! Auswertung auswählen
-    # ! ---------------------------------------------------------------------------------------------------
+    # ! -------------------------------------------------------------------------------------------------------
 
     RUN_PSD = True
     RUN_KENNFELD = False
 
-    print("\n" + "=" * 50)
-    print("Auswahl der Auswertung")
-    print("=" * 50)
-    print(f"PSD-Auswertung:      {'AN' if RUN_PSD else 'AUS'}")
+    print("\n" + "=" * 60)
+    print("Ausgewählte Auswertung")
+    print("=" * 60)
+    print(f"PSD-Auswertung:       {'AN' if RUN_PSD else 'AUS'}")
     print(f"Kennfeld-Auswertung: {'AN' if RUN_KENNFELD else 'AUS'}")
-    print("=" * 50)
+    print("=" * 60)
+
 
     # ! -------------------------------------------------------------------------------------------------------
-    # ! Fixwerte
+    # ! Geometrie
     # ! -------------------------------------------------------------------------------------------------------
 
-    # * Geometrie
     r = 0.038                      # [m] mittlerer Laufradradius
-    area = get_area(r)             # [m²] Querschnittsfläche
+    area = get_area(r)             # [m²]
 
+
+    # ! -------------------------------------------------------------------------------------------------------
+    # ! FFT-Einstellungen
+    # ! -------------------------------------------------------------------------------------------------------
+
+    nFFT = 2**13
+    overlap = 0.5
+    window_type = "hann"
+
+    f_min = 0
+    f_max = 2500
+
+
+    # ! -------------------------------------------------------------------------------------------------------
+    # ! Sensoren auswählen
+    # ! -------------------------------------------------------------------------------------------------------
+
+    channels = ["pU03"]
+
+    # Beispiele:
+    # channels = [
+        #     "pU01",
+        #     "pU02",
+        #     "pU03",
+        #     "pU04",
+        # ]
+    # channels = [f"pU{i:02d}" for i in range(1, 21)]
+
+
+    # ! -------------------------------------------------------------------------------------------------------
+    # ! Drosselbereich auswählen
+    # ! -------------------------------------------------------------------------------------------------------
+
+    d_start = 22.0
+    d_end = 14.5
+
+    # * Umrechnung auf Dateinamen-Skalierung
+    d_start_int = int(round(d_start * 10))
+    d_end_int = int(round(d_end * 10))
+
+    d_min = min(d_start_int, d_end_int)
+    d_max = max(d_start_int, d_end_int)
+
+    # ! -------------------------------------------------------------------------------------------------------
+    # ! Plot-Ausgabe
+    # ! -------------------------------------------------------------------------------------------------------
+
+    SAVE_PLOTS = False
+
+    save_folder = (r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Plots\PSD")
+
+
+    # ! -------------------------------------------------------------------------------------------------------
+    # ! Verfügbare Messungen
+    # ! -------------------------------------------------------------------------------------------------------
+
+    measurement_folders = {
+
+        "LG_IGV00": r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV00",
+
+        "LG_IGV02": r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV02",
+
+        "LG_IGV06": r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV06",
+
+        "LG_IGV07": r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV07",
+
+        "LG_IGV12": r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV12",
+    }
+
+
+    # ! -------------------------------------------------------------------------------------------------------
+    # ! Messungen auswählen
+    # ! -------------------------------------------------------------------------------------------------------
+
+    selected_measurements = [
+        "LG_IGV00",
+        "LG_IGV02",
+        "LG_IGV06",
+        "LG_IGV07",
+        "LG_IGV12",
+    ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
     # ! -------------------------------------------------------------------------------------------------------
     # ! Debug / Plausibilität
@@ -77,79 +188,6 @@ def main():
         # ! -------------------------------------- PSD-AUSWERTUNG -------------------------------------------------
         # ! -------------------------------------------------------------------------------------------------------
 
-
-        # ! -------------------------------------------------------------------------------------------------------
-        # ! TODO: Messreihen auswählen
-        # ! -------------------------------------------------------------------------------------------------------
-
-        # * Verfügbare Messordner
-        psd_measurement_folders = {
-            "LG_IGV00":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV00",
-            "LG_IGV02":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV02",
-            "LG_IGV06":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV06",
-            "LG_IGV07":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV07",
-            "LG_IGV12":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV12",
-        }
-
-        # * Welche Messreihen in den PSD-Plots verglichen werden sollen
-        selected_psd_measurements = [
-            "LG_IGV00",
-            "LG_IGV02",
-            "LG_IGV06",
-            "LG_IGV07",
-            "LG_IGV12",
-        ]
-
-
-        # ! -------------------------------------------------------------------------------------------------------
-        # ! TODO: Sensoren auswählen
-        # ! -------------------------------------------------------------------------------------------------------
-
-        # * Beispiel: nur ein Sensor
-        channels = ["pU03"]
-
-        # * Beispiel: mehrere Sensoren
-        # channels = ["pU01", "pU02", "pU03", "pU04"]
-
-
-        # ! -------------------------------------------------------------------------------------------------------
-        # ! TODO: Drosselbereich auswählen
-        # ! -------------------------------------------------------------------------------------------------------
-
-        # * Beispiel: 22.0 bis 14.5 entspricht d220 bis d145
-        d_start = 22.0
-        d_end = 14.5
-
-        # * Umrechnung auf Dateinamen-Skalierung
-        d_start_int = int(round(d_start * 10))
-        d_end_int = int(round(d_end * 10))
-
-        d_min = min(d_start_int, d_end_int)
-        d_max = max(d_start_int, d_end_int)
-
-        # ! -------------------------------------------------------------------------------------------------------
-        # ! TODO: Plot-Ausgabe auswählen
-        # ! -------------------------------------------------------------------------------------------------------
-
-        # * Zielordner für die gespeicherten PSD-Plots
-        save_folder = (r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Plots\PSD")
-
-        # * PDF-Dateien speichern?
-        SAVE_PLOTS = False
-
-        # ! -------------------------------------------------------------------------------------------------------
-        # ! TODO: FFT-/PSD-Einstellungen
-        # ! -------------------------------------------------------------------------------------------------------
-
-        nFFT = 2**13
-        overlap = 0.5
-        window_type = "hann"
-
-        # * Angezeigter Frequenzbereich
-        f_min = 0
-        f_max = 2500
-
-
         # ! -------------------------------------------------------------------------------------------------------
         # ! Gemeinsame Drosselstellungen der ausgewählten Messreihen bestimmen
         # ! -------------------------------------------------------------------------------------------------------
@@ -157,9 +195,9 @@ def main():
         # * Für jede Messreihe werden zunächst die vorhandenen Drosselstellungen gespeichert
         d_values_per_measurement = {}
 
-        for measurement in selected_psd_measurements:
+        for measurement in selected_measurements:
 
-            folderpath = psd_measurement_folders[measurement]
+            folderpath = measurement_folders[measurement]
 
             filepaths = glob.glob(
                 os.path.join(folderpath, "*.d7d")
@@ -200,7 +238,7 @@ def main():
         # * Nur Drosselstellungen verwenden, die in ALLEN ausgewählten Messreihen vorhanden sind
         valid_d_sets = [
             d_values_per_measurement[measurement]
-            for measurement in selected_psd_measurements
+            for measurement in selected_measurements
             if len(d_values_per_measurement[measurement]) > 0
         ]
 
@@ -220,7 +258,7 @@ def main():
             print("=" * 90)
             print("PSD-Auswertung")
             print("=" * 90)
-            print(f"Messreihen: {selected_psd_measurements}")
+            print(f"Messreihen: {selected_measurements}")
             print(f"Sensoren:   {channels}")
             print(f"Drosseln:   {selected_d_values}")
 
@@ -238,9 +276,9 @@ def main():
                 # ! Alle ausgewählten Messreihen auswerten
                 # ! -----------------------------------------------------------------------------------------------
 
-                for measurement in selected_psd_measurements:
+                for measurement in selected_measurements:
 
-                    folderpath = psd_measurement_folders[measurement]
+                    folderpath = measurement_folders[measurement]
 
 
                     # * Referenzdatei 0000 für diese Drosselstellung suchen
@@ -327,7 +365,7 @@ def main():
                     # * IGV-Bezeichnungen für Titel erzeugen
                     igv_labels = []
 
-                    for measurement in selected_psd_measurements:
+                    for measurement in selected_measurements:
 
                         if "LG_IGV00" in measurement:
                             igv_labels.append("00")
