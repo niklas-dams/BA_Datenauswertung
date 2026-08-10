@@ -10,7 +10,7 @@ def main():
     # ! Notizen
     # ! -------------------------------------------------------------------------------------------------------
         #*Für die Referenzmessung ist der RI Bereich zwischen d20.0 - 14.5, d14.5 ist der Peak / letzter stabiler OP!
-        #*
+        #* LG_Ref_3D_Einlauf -> LG_IGV00 Renamed!
         #*
         #*
         #*
@@ -23,14 +23,14 @@ def main():
     # ! Auswertung auswählen
     # ! -------------------------------------------------------------------------------------------------------
 
-    RUN_PSD = True
-    RUN_KENNFELD = False
+    RUN_PSD = False                                                                                                  #TODO
+    RUN_KENNFELD = True                                                                                             #TODO
 
     print("\n" + "=" * 60)
     print("Ausgewählte Auswertung")
     print("=" * 60)
-    print(f"PSD-Auswertung:       {'AN' if RUN_PSD else 'AUS'}")
-    print(f"Kennfeld-Auswertung: {'AN' if RUN_KENNFELD else 'AUS'}")
+    print(f"PSD-Auswertung:         {'AN' if RUN_PSD else 'AUS'}")
+    print(f"Kennfeld-Auswertung:    {'AN' if RUN_KENNFELD else 'AUS'}")
     print("=" * 60)
 
 
@@ -46,19 +46,19 @@ def main():
     # ! FFT-Einstellungen
     # ! -------------------------------------------------------------------------------------------------------
 
-    nFFT = 2**13
-    overlap = 0.5
-    window_type = "hann"
+    nFFT = 2**13                                                                                                    #TODO
+    overlap = 0.5                                                                                                   #TODO
+    window_type = "hann"                                                                                            #TODO
 
-    f_min = 0
-    f_max = 2500
+    f_min = 0                                                                                                       #TODO
+    f_max = 2500                                                                                                    #TODO
 
 
     # ! -------------------------------------------------------------------------------------------------------
     # ! Sensoren auswählen
     # ! -------------------------------------------------------------------------------------------------------
 
-    channels = ["pU03"]
+    channels = ["pU03"]                                                                                             #TODO
 
     # Beispiele:
     # channels = [
@@ -74,8 +74,8 @@ def main():
     # ! Drosselbereich auswählen
     # ! -------------------------------------------------------------------------------------------------------
 
-    d_start = 22.0
-    d_end = 14.5
+    d_start = 22.0                                                                                                  #TODO
+    d_end = 14.5                                                                                                    #TODO
 
     # * Umrechnung auf Dateinamen-Skalierung
     d_start_int = int(round(d_start * 10))
@@ -88,7 +88,7 @@ def main():
     # ! Plot-Ausgabe
     # ! -------------------------------------------------------------------------------------------------------
 
-    SAVE_PLOTS = False
+    SAVE_PLOTS = False                                                                                              #TODO
 
     save_folder = (r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Plots\PSD")
 
@@ -115,43 +115,24 @@ def main():
     # ! Messungen auswählen
     # ! -------------------------------------------------------------------------------------------------------
 
-    selected_measurements = [
-        "LG_IGV00",
-        "LG_IGV02",
-        "LG_IGV06",
-        "LG_IGV07",
-        "LG_IGV12",
-    ]
+    # selected_measurements = [                                                                                       #TODO
+    #     "LG_IGV00",
+    #     "LG_IGV02",
+    #     "LG_IGV06",
+    #     "LG_IGV07",
+    #     "LG_IGV12",
+    # ]
+
+    selected_measurements = [                                                                                       #TODO
+            "LG_IGV00",
+            "LG_IGV02"
+        ]
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-    # ! -------------------------------------------------------------------------------------------------------
-    # ! Debug / Plausibilität
-    # ! -------------------------------------------------------------------------------------------------------
+    # ! ==========================================================================================================
+    # ! ======================================  DEBUG / PLAUSIBILITÄT ============================================
+    # ! ==========================================================================================================
 
     # TODO: Bei Bedarf einkommentieren
 
@@ -400,29 +381,6 @@ def main():
         # ! -----------------------------------------------------------------------------------------------------------
         # ! ----------------------------------------- KENNFELDER -------------------------------------------------------
         # ! -----------------------------------------------------------------------------------------------------------
-
-
-        # ! -------------------------------------------------------------------------------------------------------
-        # ! Messungen auswählen
-        # ! -------------------------------------------------------------------------------------------------------
-
-        # * Verfügbare Messordner
-        measurement_folders = {
-            "LG_IGV00":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV00",
-            "LG_IGV02":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV02",
-            "LG_IGV06":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV06",
-            "LG_IGV07":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV07",
-            "LG_IGV12":         r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Messungen\LG_IGV12",
-        }
-
-        # * Welche Messungen gemeinsam verglichen werden sollen
-        selected_measurements = [
-            "LG_IGV00",
-            "LG_IGV02",
-            "LG_IGV06",
-            "LG_IGV07",
-            "LG_IGV12",
-        ]
 
 
         # ! -------------------------------------------------------------------------------------------------------
