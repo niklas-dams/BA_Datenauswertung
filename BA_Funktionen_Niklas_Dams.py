@@ -1,6 +1,6 @@
 import dwdatareader as dw
 import numpy as np
-from scipy.signal import get_window, welch
+from scipy.signal import get_window, welch, csd
 import re #regular expressions ((Regex) für filename search)
 import os #Operating System (für arbeiten im Dateipfard, beides a bit dirty...)
 
@@ -477,3 +477,240 @@ def get_mean_operating_point(filepaths_for_d, r):
     phi_std = np.std(phi_values, ddof=1)
 
     return psi_mean, phi_mean, psi_std, phi_std
+
+
+
+def compute_mean_coherence(
+    filepath,
+    channel_1,
+    channel_2,
+    nFFT,
+    overlap=0.5,
+    window_type="hann"
+):
+    """
+    Berechnet die gemittelte Kohärenz und Phase zwischen zwei Sensoren
+    über die fünf Wiederholungsmessungen 0000 bis 0004.
+
+    Parameters
+    ----------
+    filepath : str
+        Pfad zur Referenzdatei, z.B. *_0000.d7d
+
+    channel_1 : str
+        Erster Drucksensor, z.B. "pU08"
+
+    channel_2 : str
+        Zweiter Drucksensor, z.B. "pU13"
+
+    nFFT : int
+        FFT-Länge
+
+    overlap : float
+        Überlappung der FFT-Segmente, z.B. 0.5
+
+    window_type : str
+        Fensterfunktion, z.B. "hann"
+
+    Returns
+    -------
+    freqs : ndarray
+        Frequenzachse [Hz]
+
+    coherence_mean : ndarray
+        Gemittelte Kohärenz [-]
+
+    phase_mean : ndarray
+        Phasenwinkel [°]
+    """
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Wiederholungsmessungen bestimmen
+    # ! ---------------------------------------------------------------------------------------------------
+
+    # * Aus *_0000.d7d werden automatisch 0000 bis 0004 erzeugt
+    base_path = re.sub(
+        r"_\d{4}\.d7d$",
+        "",
+        filepath
+    )
+
+    filepaths = [
+        f"{base_path}_{i:04d}.d7d"
+        for i in range(5)
+    ]
+
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Speicher für Spektren
+    # ! ---------------------------------------------------------------------------------------------------
+
+    Pxx_list = []
+    Pyy_list = []
+    Pxy_list = []
+
+    freqs = None
+
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Alle fünf Wiederholungsmessungen auswerten
+    # ! ---------------------------------------------------------------------------------------------------
+
+    for file in filepaths:
+
+        if not os.path.exists(file):
+            print(f"Warnung: Datei fehlt: {file}")
+            continue
+
+
+        # * Beide Sensoren laden
+        signal_1, fs_1, _ = load_d7d_channel(
+            file,
+            channel_1
+        )
+
+        signal_2, fs_2, _ = load_d7d_channel(
+            file,
+            channel_2
+        )
+
+
+        # ? Prüfen, ob beide Sensoren dieselbe Abtastrate besitzen
+        if not np.isclose(fs_1, fs_2):
+            raise ValueError(
+                f"Unterschiedliche Abtastraten: "
+                f"{channel_1} = {fs_1} Hz, "
+                f"{channel_2} = {fs_2} Hz"
+            )
+
+        fs = fs_1
+
+
+        # * Beide Signale auf gleiche Länge bringen
+        n = min(
+            len(signal_1),
+            len(signal_2)
+        )
+
+        signal_1 = np.asarray(
+            signal_1[:n],
+            dtype=float
+        )
+
+        signal_2 = np.asarray(
+            signal_2[:n],
+            dtype=float
+        )
+
+
+        # * Anzahl Samples der Überlappung
+        noverlap = int(
+            nFFT * overlap
+        )
+
+
+        # ! -----------------------------------------------------------------------------------------------
+        # ! Autospektrum Sensor 1
+        # ! -----------------------------------------------------------------------------------------------
+
+        freqs, Pxx = welch(
+            signal_1,
+            fs=fs,
+            window=window_type,
+            nperseg=nFFT,
+            noverlap=noverlap,
+            nfft=nFFT,
+            detrend="constant"
+        )
+
+
+        # ! -----------------------------------------------------------------------------------------------
+        # ! Autospektrum Sensor 2
+        # ! -----------------------------------------------------------------------------------------------
+
+        _, Pyy = welch(
+            signal_2,
+            fs=fs,
+            window=window_type,
+            nperseg=nFFT,
+            noverlap=noverlap,
+            nfft=nFFT,
+            detrend="constant"
+        )
+
+
+        # ! -----------------------------------------------------------------------------------------------
+        # ! Kreuzleistungsdichte zwischen beiden Sensoren
+        # ! -----------------------------------------------------------------------------------------------
+
+        _, Pxy = csd(
+            signal_1,
+            signal_2,
+            fs=fs,
+            window=window_type,
+            nperseg=nFFT,
+            noverlap=noverlap,
+            nfft=nFFT,
+            detrend="constant"
+        )
+
+
+        # * Spektren dieser Wiederholungsmessung speichern
+        Pxx_list.append(Pxx)
+        Pyy_list.append(Pyy)
+        Pxy_list.append(Pxy)
+
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Prüfen, ob gültige Messungen vorhanden sind
+    # ! ---------------------------------------------------------------------------------------------------
+
+    if len(Pxy_list) == 0:
+        raise ValueError(
+            "Keine gültigen Wiederholungsmessungen "
+            "für die Kohärenzanalyse gefunden."
+        )
+
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Spektren über Wiederholungsmessungen mitteln
+    # ! ---------------------------------------------------------------------------------------------------
+
+    Pxx_mean = np.mean(
+        Pxx_list,
+        axis=0
+    )
+
+    Pyy_mean = np.mean(
+        Pyy_list,
+        axis=0
+    )
+
+    Pxy_mean = np.mean(
+        Pxy_list,
+        axis=0
+    )
+
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Kohärenz berechnen
+    # ! ---------------------------------------------------------------------------------------------------
+
+    coherence_mean = (
+        np.abs(Pxy_mean)**2
+        / (Pxx_mean * Pyy_mean)
+    )
+
+
+    # ! ---------------------------------------------------------------------------------------------------
+    # ! Phasenwinkel berechnen
+    # ! ---------------------------------------------------------------------------------------------------
+
+    # * Phase erst NACH Mittelung des komplexen Kreuzspektrums bestimmen
+    phase_mean = np.angle(
+        Pxy_mean,
+        deg=True
+    )
+
+
+    return freqs, coherence_mean, phase_mean
