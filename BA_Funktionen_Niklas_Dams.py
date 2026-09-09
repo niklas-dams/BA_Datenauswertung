@@ -490,7 +490,7 @@ def compute_mean_coherence(
 ):
     """
     Berechnet die gemittelte Kohärenz und Phase zwischen zwei Sensoren
-    über die fünf Wiederholungsmessungen 0000 bis 0004.
+    über die fünf Wiederholungen
 
     Parameters
     ----------
@@ -697,8 +697,7 @@ def compute_mean_coherence(
     # ! ---------------------------------------------------------------------------------------------------
 
     coherence_mean = (
-        np.abs(Pxy_mean)**2
-        / (Pxx_mean * Pyy_mean)
+        np.abs(Pxy_mean)**2 / (Pxx_mean * Pyy_mean)
     )
 
 

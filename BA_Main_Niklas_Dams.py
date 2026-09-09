@@ -14,6 +14,8 @@ def main():
         #* 
         #* B sensoren
         #* Sensoren pU08 und pU13: beides B-Sensoren mit 90° Verschiebung
+        #* 7-27. september Ergin weg!
+        #* mehr als 90° um zu zeigen dass RI abklingt
 
     # ! ===========================================================================================
     # ! ====================================== KONFIGURATION ======================================
@@ -24,14 +26,16 @@ def main():
     # ! -------------------------------------------------------------------------------------------------------
 
     RUN_PSD = True                                                                                                 #TODO
-    RUN_KENNFELD = True                                                                                           #TODO
-    RUN_COHERENCE = True
+    RUN_KENNFELD = False                                                                                            #TODO
+    RUN_KENNFELD_EINZELWERTE = False                                                                                 #TODO                         
+    RUN_COHERENCE = False                                                                                            #TODO
 
     print("\n" + "=" * 60)
     print("Ausgewählte Auswertung")
     print("=" * 60)
     print(f"PSD-Auswertung:         {'AN' if RUN_PSD else 'AUS'}")
     print(f"Kennfeld-Auswertung:    {'AN' if RUN_KENNFELD else 'AUS'}")
+    print(f"Kennfeld-Einzelwerte:   {'AN' if RUN_KENNFELD_EINZELWERTE else 'AUS'}")
     print(f"Kohärenzanalyse:        {'AN' if RUN_COHERENCE else 'AUS'}")
     print("=" * 60)
 
@@ -48,7 +52,7 @@ def main():
     # ! FFT-Einstellungen
     # ! -------------------------------------------------------------------------------------------------------
 
-    nFFT = 2**13                            #! 2**13 -> 2**15                                                       #TODO
+    nFFT = 2**15                           #! 2**13 -> 2**15                                                        #TODO
     overlap = 0.5                           #! 0.5 -> 0,25 oder no                                                  #TODO
     window_type = "hann"                                                                                            #TODO
 
@@ -57,16 +61,33 @@ def main():
 
 
     # ! -------------------------------------------------------------------------------------------------------
+    # ! Wiederholungsmessungen auswählen
+    # ! -------------------------------------------------------------------------------------------------------
+
+    # * Möglichkeiten:
+    # * "mean"   -> Mittelwert aus den Wiederholungsmessungen 0000 bis 0004
+    # * "single" -> Nur ausgewählte Einzelmessungen darstellen
+    # * "both"   -> Mittelwert UND ausgewählte Einzelmessungen darstellen
+    PSD_MODE = "both"                                                                                            #TODO
+
+    # * Nur relevant für PSD_MODE = "single" oder "both"
+    # * 0 -> Datei 0000
+    # * 1 -> Datei 0001
+    # * ...
+    # * 4 -> Datei 0004
+    PSD_SINGLE_MEASUREMENTS = [0]                                                                                  #TODO
+
+    # ! -------------------------------------------------------------------------------------------------------
     # ! Sensoren auswählen
     # ! -------------------------------------------------------------------------------------------------------
 
-    #channels = ["pU03"]                                                                                             #TODO
+    channels = ["pU08"]                                                                                            #TODO
 
     # Beispiele:
-    channels = [
-            "pU08",
-            "pU13",
-        ]
+    #channels = [
+        #     "pU08",
+        #     "pU13",
+        # ]
     #channels = [f"pU{i:02d}" for i in range(5, 14)]
 
 
@@ -74,8 +95,8 @@ def main():
     # ! Drosselbereich auswählen
     # ! -------------------------------------------------------------------------------------------------------
 
-    d_start = 22.0                                   #RI: 22.0 - 14.5                                               #TODO
-    d_end = 14.5                                                                                                    #TODO
+    d_start = 14.0                                   #RI: 22.0 - 14.5                                               #TODO
+    d_end = 16.0                                                                                                    #TODO
 
     # * Umrechnung auf Dateinamen-Skalierung
     d_start_int = int(round(d_start * 10))
@@ -90,7 +111,7 @@ def main():
 
     SAVE_PLOTS = False                                                                                             #TODO
 
-    save_folder = (r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Plots\PSD")
+    save_folder = (r"C:\Users\Niklas\OneDrive\Dokumente\A_Studium\A_Verkehrswesen\A_Bachelor\Plots\PSD\Ausgewählte PSDs für erste Auswertung")
 
 
     # ! -------------------------------------------------------------------------------------------------------
@@ -124,8 +145,28 @@ def main():
     # ]
 
     selected_measurements = [
+            #"LG_IGV00",
             "LG_IGV12"
         ]
+
+    # ! ========================================================================================================
+    # ! Kennfeld mit Einzelmessungen konfigurieren
+    # ! ========================================================================================================
+
+    # * Messreihen auswählen, deren EINZELNE Wiederholungsmessungen
+    # * im zusätzlichen Verdichterkennfeld dargestellt werden sollen
+    kennfeld_einzelwerte_measurements = [                                                                          #TODO
+        "LG_IGV00",
+        # "LG_IGV02",
+        # "LG_IGV06",
+        # "LG_IGV07",
+        "LG_IGV12"
+    ]
+
+    # * Grenzwert für die relative Abweichung von phi innerhalb
+    # * einer Drosselstellung
+    # * Beispiel: 5.0 bedeutet maximal ±5 % Abweichung vom Mittelwert
+    phi_deviation_limit_percent = 5.0                                                                             #TODO
 
 
     # ! ========================================================================================================
@@ -134,12 +175,15 @@ def main():
 
     # * Messreihe auswählen
     coherence_measurements = [                                                                                      #TODO
-    "LG_IGV12",
-    #"LG_IGV12",
+        "LG_IGV00",
+        # "LG_IGV02",
+        # "LG_IGV06",
+        # "LG_IGV07",
+        "LG_IGV12"
     ] 
 
     # * Drosselstellung auswählen
-    coherence_d = 18.0                                                                                              #TODO
+    coherence_d = 17.0                                                                                              #TODO
 
     # * Zwei Sensoren für die Kohärenzanalyse
     coherence_channels = [                                                                                          #TODO
@@ -148,7 +192,7 @@ def main():
     ]
 
     # * Geometrischer Umfangsabstand der Sensoren
-    coherence_sensor_angle = 90.0      # [°]                                                                        #TODO
+    coherence_sensor_angle = (13 - 10)* (360/20)      # [°]                                                          #TODO
 
     # * Stationäre Rotordrehzahl
     coherence_rpm = 10000              # [rpm]
@@ -322,21 +366,110 @@ def main():
 
                         try:
 
-                            # * PSD der fünf Wiederholungsmessungen mitteln
-                            freqs, psd = compute_mean_psd(
-                                filepath=filepath_psd,
-                                channel_name=channel_name,
-                                nFFT=nFFT,
-                                overlap=overlap,
-                                window_type=window_type
-                            )
+                            # ! -----------------------------------------------------------------------------------
+                            # ! GEMITTELTE PSD
+                            # ! -----------------------------------------------------------------------------------
 
-                            # * Jede Kombination aus Messreihe und Sensor erhält einen Legendeneintrag
-                            ax.semilogy(
-                                freqs,
-                                psd,
-                                label=f"{measurement} – {channel_name}"
-                            )
+                            if PSD_MODE in ["mean", "both"]:
+
+                                # * Mittelwert aus den Wiederholungsmessungen
+                                # * 0000 bis 0004 wie bisher berechnen
+                                freqs_mean, psd_mean = compute_mean_psd(
+                                    filepath=filepath_psd,
+                                    channel_name=channel_name,
+                                    nFFT=nFFT,
+                                    overlap=overlap,
+                                    window_type=window_type
+                                )
+
+                                ax.semilogy(
+                                    freqs_mean,
+                                    psd_mean,
+                                    linewidth=1.8,
+                                    label=f"{measurement} – {channel_name} – Mittelwert"
+                                )
+
+
+                            # ! -----------------------------------------------------------------------------------
+                            # ! EINZELNE WIEDERHOLUNGSMESSUNGEN
+                            # ! -----------------------------------------------------------------------------------
+
+                            if PSD_MODE in ["single", "both"]:
+
+                                # * Basis der Referenzdatei bestimmen
+                                # * Beispiel:
+                                # * ..._d170_0000.d7d
+                                # * wird zu
+                                # * ..._d170_
+                                base_filepath = re.sub(
+                                    r"0000\.d7d$",
+                                    "",
+                                    filepath_psd
+                                )
+
+
+                                # * Gewählte Wiederholungsmessungen durchlaufen
+                                for measurement_number in PSD_SINGLE_MEASUREMENTS:
+
+                                    # ? Nur gültige Messungsnummern zulassen
+                                    if measurement_number not in range(5):
+
+                                        print(
+                                            f"Ungültige PSD-Wiederholungsmessung: "
+                                            f"{measurement_number}. "
+                                            f"Erlaubt sind 0 bis 4."
+                                        )
+
+                                        continue
+
+
+                                    # * Dateipfad der gewünschten Einzelmessung erzeugen
+                                    filepath_single = (
+                                        f"{base_filepath}"
+                                        f"{measurement_number:04d}.d7d"
+                                    )
+
+
+                                    # ? Prüfen, ob Datei vorhanden ist
+                                    if not os.path.exists(filepath_single):
+
+                                        print(
+                                            f"Einzelmessung nicht gefunden: "
+                                            f"{filepath_single}"
+                                        )
+
+                                        continue
+
+
+                                    # * Zeitsignal der Einzelmessung laden
+                                    signal_single, fs_single, _ = load_d7d_channel(
+                                        filepath_single,
+                                        channel_name
+                                    )
+
+
+                                    # * PSD NUR dieser einen Messung berechnen
+                                    freqs_single, psd_single, _ = compute_psd_1d_scipy(
+                                        signal=signal_single,
+                                        nFFT=nFFT,
+                                        fs=fs_single,
+                                        overlap=overlap,
+                                        window_type=window_type
+                                    )
+
+
+                                    # * Einzelmessung plotten
+                                    ax.semilogy(
+                                        freqs_single,
+                                        psd_single,
+                                        linewidth=1.0,
+                                        label=(
+                                            f"{measurement} – "
+                                            f"{channel_name} – "
+                                            f"Messung {measurement_number:02d}"
+                                        )
+                                    )
+
 
                         except Exception as e:
 
@@ -346,7 +479,6 @@ def main():
                                 f"d{d_value}, "
                                 f"{channel_name}: {e}"
                             )
-
 
                 # ! -----------------------------------------------------------------------------------------------
                 # ! Plot dieser Drosselstellung formatieren
@@ -394,7 +526,40 @@ def main():
 
                     igv_text = "+".join(igv_labels)
 
-                    filename = f"PSD_D{d_value}_IGV{igv_text}_{sensor_text_file}_nFFT{nFFT_exp}_overlap{overlap_text}.pdf"
+                                        # * PSD-Modus für Dateinamen
+                    if PSD_MODE == "mean":
+
+                        psd_mode_text = "mean"
+
+                    elif PSD_MODE == "single":
+
+                        single_text = "+".join(
+                            f"{number:02d}"
+                            for number in PSD_SINGLE_MEASUREMENTS
+                        )
+
+                        psd_mode_text = f"single{single_text}"
+
+                    elif PSD_MODE == "both":
+
+                        single_text = "+".join(
+                            f"{number:02d}"
+                            for number in PSD_SINGLE_MEASUREMENTS
+                        )
+
+                        psd_mode_text = f"mean+single{single_text}"
+
+                    else:
+
+                        psd_mode_text = PSD_MODE
+
+                        filename = (
+                        f"PSD_D{d_value}_IGV{igv_text}_"
+                        f"{sensor_text_file}_"
+                        f"{psd_mode_text}_"
+                        f"nFFT{nFFT_exp}_"
+                        f"overlap{overlap_text}.pdf"
+                    )
 
                     fig.savefig(
                         os.path.join(save_folder, filename),
@@ -460,6 +625,20 @@ def main():
         print(f"Window:           {window_type}")
         print("=" * 90)
 
+
+        # ! ---------------------------------------------------------------------------------------------------
+        # ! Ausbreitungsgeschwindigkeit Manuell
+        # ! ---------------------------------------------------------------------------------------------------
+        
+        f_rot = coherence_rpm / 60
+
+        delta_f = 65   #TODO Abstand der RI-Peaks [Hz]
+
+        k_rel = delta_f / f_rot
+
+        print(f"RI-Peakabstand: {delta_f:.2f} Hz (manuell abgelesen!!!)")
+        print(f"Ausbreitungsgeschwindigkeit: {k_rel * 100:.1f} % der Rotordrehzahl")
+        print("=" * 90)
 
         # ! ---------------------------------------------------------------------------------------------------
         # ! Gemeinsame Figure erstellen
@@ -677,12 +856,12 @@ def main():
         )
 
         # # * Schwelle sichtbar machen
-        # ax_coh.axhline(
-        #     0.6,
-        #     linestyle="--",
-        #     linewidth=1,
-        #     label="C = 0.6"
-        # )
+        ax_coh.axhline(
+            0.6,
+            linestyle="--",
+            linewidth=1,
+            label="C = 0.6"
+        )
 
         ax_coh.grid(True)
 
@@ -733,6 +912,302 @@ def main():
 
         if not RUN_KENNFELD:
             plt.show()
+
+
+
+
+    # ! ===========================================================================================
+    # ! ======================== ▼ KENNFELD EINZELWERTE ▼ ========================================
+    # ! ===========================================================================================
+
+    if RUN_KENNFELD_EINZELWERTE:
+
+        print("\n" + "=" * 90)
+        print("KENNFELD - EINZELMESSUNGEN")
+        print("=" * 90)
+
+        print(f"Messreihen: {kennfeld_einzelwerte_measurements}")
+        print(
+            f"Zulässige relative phi-Abweichung: "
+            f"±{phi_deviation_limit_percent:.1f} %"
+        )
+        print("=" * 90)
+
+
+        # ! -------------------------------------------------------------------------------------------------------
+        # ! Figure für Verdichterkennfeld vorbereiten
+        # ! -------------------------------------------------------------------------------------------------------
+
+        fig_einzel, ax_einzel = plt.subplots(
+            figsize=(9, 6)
+        )
+
+
+        # ! -------------------------------------------------------------------------------------------------------
+        # ! Ausgewählte IGV-Messreihen nacheinander auswerten
+        # ! -------------------------------------------------------------------------------------------------------
+
+        for measurement in kennfeld_einzelwerte_measurements:
+
+            print("\n" + "-" * 90)
+            print(f"Einzelwert-Auswertung: {measurement}")
+            print("-" * 90)
+
+            folderpath = measurement_folders[measurement]
+
+            # * Alle d7d-Dateien der Messreihe suchen
+            filepaths = glob.glob(
+                os.path.join(
+                    folderpath,
+                    "*.d7d"
+                )
+            )
+
+
+            # ? Prüfen, ob Dateien vorhanden sind
+            if len(filepaths) == 0:
+
+                print(
+                    f"Keine d7d-Dateien gefunden in:\n"
+                    f"{folderpath}"
+                )
+
+                continue
+
+
+            # ! ---------------------------------------------------------------------------------------------------
+            # ! Dateien nach Drosselstellung gruppieren
+            # ! ---------------------------------------------------------------------------------------------------
+
+            groups = {}
+
+            for filepath in filepaths:
+
+                d_value = get_drosselwert_from_filename(
+                    filepath
+                )
+
+                # ? Dateien ohne gültigen Drosselwert ignorieren
+                if d_value is None:
+                    continue
+
+                # * Nur Drosselstellungen aus dem oben eingestellten Bereich verwenden
+                if not d_min <= d_value <= d_max:
+                    continue
+
+                # * Wiederholungsmessungen derselben Drosselstellung gruppieren
+                groups.setdefault(
+                    d_value,
+                    []
+                ).append(filepath)
+
+
+            # ! ---------------------------------------------------------------------------------------------------
+            # ! Speicher für ALLE Einzelmessungen dieser IGV-Konfiguration
+            # ! ---------------------------------------------------------------------------------------------------
+
+            all_phi_values = []
+            all_psi_values = []
+
+
+            # ! ---------------------------------------------------------------------------------------------------
+            # ! Drosselstellungen nacheinander auswerten
+            # ! ---------------------------------------------------------------------------------------------------
+
+            for d_value in sorted(groups.keys()):
+
+                files_for_d = sorted(
+                    groups[d_value]
+                )
+
+
+                # ? Anzahl der Wiederholungsmessungen kontrollieren
+                if len(files_for_d) != 5:
+
+                    print(
+                        f"Warnung: {measurement}, d={d_value}: "
+                        f"{len(files_for_d)} Dateien statt erwarteten 5."
+                    )
+
+
+                # ! -----------------------------------------------------------------------------------------------
+                # ! Einzelwerte von phi und psi berechnen
+                # ! -----------------------------------------------------------------------------------------------
+
+                phi_single = []
+                psi_single = []
+
+
+                for filepath in files_for_d:
+
+                    try:
+
+                        # * Betriebspunkt DIESER EINZELMESSUNG berechnen
+                        phi_i = get_phi(
+                            filepath,
+                            r
+                        )
+
+                        psi_i = get_psi(
+                            filepath
+                        )
+
+
+                        # * Einzelwerte speichern
+                        phi_single.append(
+                            phi_i
+                        )
+
+                        psi_single.append(
+                            psi_i
+                        )
+
+
+                        # * Zusätzlich für das komplette Kennfeld speichern
+                        all_phi_values.append(
+                            phi_i
+                        )
+
+                        all_psi_values.append(
+                            psi_i
+                        )
+
+
+                    except Exception as e:
+
+                        print(
+                            f"Fehler bei "
+                            f"{os.path.basename(filepath)}: {e}"
+                        )
+
+
+                # ? Falls keine gültigen Werte berechnet werden konnten
+                if len(phi_single) == 0:
+                    continue
+
+
+                # ! -----------------------------------------------------------------------------------------------
+                # ! Mittelwert von phi als Referenz bestimmen
+                # ! -----------------------------------------------------------------------------------------------
+
+                phi_mean = np.mean(
+                    phi_single
+                )
+
+                phi_std = np.std(
+                    phi_single,
+                    ddof=1
+                ) if len(phi_single) > 1 else 0.0
+
+
+                # ! -----------------------------------------------------------------------------------------------
+                # ! Relative Abweichung jeder Einzelmessung vom Mittelwert
+                # ! -----------------------------------------------------------------------------------------------
+
+                phi_deviation_percent = (
+                    np.abs(
+                        np.asarray(phi_single) - phi_mean
+                    )
+                    / np.abs(phi_mean)
+                    * 100
+                )
+
+
+                # * Größte Abweichung dieser Drosselstellung bestimmen
+                max_deviation = np.max(
+                    phi_deviation_percent
+                )
+
+
+                # * Prüfen, ob alle Messungen innerhalb des Grenzwertes liegen
+                same_operating_point = (
+                    max_deviation
+                    <= phi_deviation_limit_percent
+                )
+
+
+                # ! -----------------------------------------------------------------------------------------------
+                # ! Ergebnisse im Terminal ausgeben
+                # ! -----------------------------------------------------------------------------------------------
+
+                print()
+
+                print(
+                    f"d = {d_value:3d} | "
+                    f"phi_mittel = {phi_mean:.5f} | "
+                    f"s_phi = {phi_std:.5f} | "
+                    f"max. Abweichung = {max_deviation:.2f} % | "
+                    f"{'GLEICHER BETRIEBSPUNKT' if same_operating_point else 'PRÜFEN'}"
+                )
+
+
+                # * Einzelne Wiederholungsmessungen ausgeben
+                for i, (
+                    phi_i,
+                    psi_i,
+                    deviation_i
+                ) in enumerate(
+                    zip(
+                        phi_single,
+                        psi_single,
+                        phi_deviation_percent
+                    )
+                ):
+
+                    print(
+                        f"    Messung {i:04d}: "
+                        f"phi = {phi_i:.5f} | "
+                        f"psi = {psi_i:.5f} | "
+                        f"Abweichung phi = {deviation_i:.2f} %"
+                    )
+
+
+            # ! ---------------------------------------------------------------------------------------------------
+            # ! Alle Einzelmessungen dieser IGV-Konfiguration plotten
+            # ! ---------------------------------------------------------------------------------------------------
+
+            if len(all_phi_values) > 0:
+
+                ax_einzel.scatter(
+                    all_phi_values,
+                    all_psi_values,
+                    s=35,
+                    alpha=0.8,
+                    label=measurement
+                )
+
+
+        # ! -------------------------------------------------------------------------------------------------------
+        # ! Plot formatieren
+        # ! -------------------------------------------------------------------------------------------------------
+
+        ax_einzel.set_xlabel(
+            r"$\phi$"
+        )
+
+        ax_einzel.set_ylabel(
+            r"$\psi$"
+        )
+
+        ax_einzel.set_title(
+            "Verdichterkennfeld – Einzelmessungen"
+        )
+
+        ax_einzel.grid(
+            True
+        )
+
+        ax_einzel.legend()
+
+        fig_einzel.tight_layout()
+
+
+        # ! -------------------------------------------------------------------------------------------------------
+        # ! Plot anzeigen
+        # ! -------------------------------------------------------------------------------------------------------
+
+        plt.show()
+
 
 
 
